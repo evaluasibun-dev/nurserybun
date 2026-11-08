@@ -49,6 +49,19 @@ input:focus-visible,select:focus-visible,button:focus-visible,a:focus-visible{ou
 .item b{font-weight:700;font-size:14.5px}
 .item small{display:block;color:var(--muted);font-size:12.5px}
 .item em{font-style:normal;font-size:12.5px;font-weight:700;white-space:nowrap;color:var(--muted)}
+.origin{display:grid;gap:7px;padding:10px 12px;border:1px solid var(--line);border-radius:12px;background:var(--bg)}
+.olab{font-size:12.5px;font-weight:600;color:var(--muted)}
+.seg{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.seg .btn[aria-pressed="true"]{background:var(--leaf);color:var(--leaf-ink);border-color:var(--leaf)}
+.prow{display:grid;grid-template-columns:1fr auto;gap:6px}
+.pres{display:grid;gap:4px;max-height:220px;overflow:auto}
+.pres button{font:inherit;font-size:13px;text-align:left;background:var(--panel);color:var(--ink);border:1px solid var(--line);border-radius:9px;padding:7px 10px;cursor:pointer}
+.pres button:hover{background:var(--soft)}
+.pres small{color:var(--muted)}
+.ostat{font-size:13px;display:flex;justify-content:space-between;align-items:center;gap:8px;background:var(--panel);border:1px solid var(--line);border-radius:9px;padding:7px 10px}
+.ostat b{font-weight:700}
+.ostat button{font:inherit;font-size:12.5px;font-weight:600;color:var(--leaf);background:none;border:0;cursor:pointer;padding:2px 4px}
+.start{width:18px;height:18px;border-radius:50% 50% 50% 0;transform:rotate(-45deg);background:#D93025;border:3px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.4)}
 .empty{padding:28px 20px;color:var(--muted)}
 .more{margin:12px 20px}
 #map{height:100%;width:100%}
@@ -104,8 +117,19 @@ input:focus-visible,select:focus-visible,button:focus-visible,a:focus-visible{ou
       </div>
       <label class="f">Satker produksi benih<select id="satker"></select></label>
       <div><div style="font-size:12.5px;font-weight:600;color:var(--muted);margin-bottom:5px">Komoditas</div><div class="chips" id="chips"></div></div>
+      <div class="origin">
+        <div class="olab">Titik awal untuk menghitung jarak</div>
+        <div class="seg" role="group" aria-label="Pilih titik awal">
+          <button class="btn" id="oGps">Lokasi saya</button>
+          <button class="btn" id="oPlace">Kota / tempat</button>
+        </div>
+        <div id="placeBox" hidden>
+          <div class="prow"><input type="search" id="placeQ" placeholder="mis. Makassar, Bandara Juanda, atau -5.14, 119.43" autocomplete="off"><button class="btn primary" id="placeGo">Cari</button></div>
+          <div id="placeRes" class="pres"></div>
+        </div>
+        <div id="oStatus" class="ostat" hidden></div>
+      </div>
       <div class="tools">
-        <button class="btn" id="near">Urutkan dari lokasi saya</button>
         <button class="btn" id="reset">Atur ulang filter</button>
         <button class="btn primary" id="xls">Export ke Excel</button>
       </div>
@@ -122,7 +146,7 @@ const DATA=[{"k":"Kakao","j":"","p":"Sulawesi Selatan","kb":"Kab. Bantaeng","kc"
 const COLORS={"Tebu":"#5E8C1A","Kakao":"#9C4A22","Kopi":"#6B4A36","Kelapa":"#1E7F8C","Jambu Mete":"#D98E04","Lada":"#B3263A","Pala":"#7A3E9D"};
 const fmt=n=>n.toLocaleString('id-ID');
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-const dirURL=r=>`https://www.google.com/maps/dir/?api=1&destination=${r.la},${r.lo}&travelmode=driving`;
+const dirURL=r=>`https://www.google.com/maps/dir/?api=1${(typeof meType!=='undefined'&&meType==='place'&&me)?`&origin=${me[0]},${me[1]}`:''}&destination=${r.la},${r.lo}&travelmode=driving`;
 const viewURL=r=>`https://www.google.com/maps/search/?api=1&query=${r.la},${r.lo}`;
 DATA.forEach((r,i)=>{r.id=i;r.txt=[r.d,r.kc,r.kb,r.p,r.py,r.nk,r.pk,r.k,r.j].join(' ').toLowerCase();});
 
@@ -193,32 +217,50 @@ $('prov').addEventListener('change',()=>{fillKab();$('kab').value='';apply(true)
 $('kab').addEventListener('change',()=>apply(true));
 $('satker').addEventListener('change',()=>apply(true));
 $('reset').addEventListener('click',()=>{$('q').value='';$('prov').value='';fillKab();$('satker').value='';komList.forEach(k=>active.add(k));document.querySelectorAll('.chip').forEach(c=>c.setAttribute('aria-pressed','true'));apply(true);});
-let meMk=null;
-$('near').addEventListener('click',()=>{
-  if(me){me=null;$('near').textContent='Urutkan dari lokasi saya';$('near').classList.remove('primary');if(meMk){map.removeLayer(meMk);meMk=null;}apply(false);return;}
-  if(!navigator.geolocation){alert('Browser ini tidak mendukung lokasi.');return;}
-  $('near').textContent='Mencari lokasi…';
-  navigator.geolocation.getCurrentPosition(pos=>{me=[pos.coords.latitude,pos.coords.longitude];
-    meMk=L.marker(me,{icon:L.divIcon({html:'<div class="me"></div>',className:'',iconSize:[16,16]})}).addTo(map).bindTooltip('Lokasi Anda');
-    $('near').textContent='Urutan terdekat aktif (matikan)';$('near').classList.add('primary');apply(false);map.setView(me,9);},
-   ()=>{$('near').textContent='Urutkan dari lokasi saya';alert('Lokasi tidak bisa diambil. Izinkan akses lokasi di browser, lalu coba lagi.');},{enableHighAccuracy:true,timeout:15000});
-});
+let meMk=null, meType=null, meLabel='';
+function setOrigin(c,label,type){me=c;meType=type;meLabel=label;
+  if(meMk)map.removeLayer(meMk);
+  meMk=L.marker(c,{icon:type==='gps'?L.divIcon({html:'<div class="me"></div>',className:'',iconSize:[16,16]}):L.divIcon({html:'<div class="start"></div>',className:'',iconSize:[18,18],iconAnchor:[9,18]}),zIndexOffset:1000}).addTo(map).bindTooltip('Titik awal: '+label);
+  $('oGps').setAttribute('aria-pressed',type==='gps');$('oPlace').setAttribute('aria-pressed',type==='place');
+  const st=$('oStatus');st.hidden=false;st.innerHTML=`<span>Titik awal: <b>${esc(label)}</b><br><small style="color:var(--muted)">Daftar diurutkan dari yang terdekat</small></span><button id="oClear">Hapus</button>`;
+  $('oClear').onclick=clearOrigin;apply(false);map.setView(c,9);}
+function clearOrigin(){me=null;meType=null;meLabel='';if(meMk){map.removeLayer(meMk);meMk=null;}
+  $('oStatus').hidden=true;$('oGps').setAttribute('aria-pressed','false');$('oPlace').setAttribute('aria-pressed','false');$('placeBox').hidden=true;apply(true);}
+function gpsOrigin(){return new Promise((ok,no)=>{if(!navigator.geolocation){alert('Browser ini tidak mendukung lokasi.');return no();}
+  $('oGps').textContent='Mencari lokasi…';
+  navigator.geolocation.getCurrentPosition(pos=>{$('oGps').textContent='Lokasi saya';setOrigin([pos.coords.latitude,pos.coords.longitude],'Lokasi saya (GPS)','gps');ok(me);},
+   ()=>{$('oGps').textContent='Lokasi saya';alert('Lokasi tidak bisa diambil. Izinkan akses lokasi di browser, atau gunakan pilihan Kota / tempat.');no();},{enableHighAccuracy:true,timeout:15000});});}
+$('oGps').addEventListener('click',()=>{$('placeBox').hidden=true;gpsOrigin().catch(()=>{});});
+$('oPlace').addEventListener('click',()=>{const bx=$('placeBox');bx.hidden=!bx.hidden;if(!bx.hidden)$('placeQ').focus();});
+async function searchPlace(){
+  const q=$('placeQ').value.trim(),res=$('placeRes');if(!q)return;
+  const m=q.match(/^\s*(-?\d{1,2}(?:\.\d+)?)\s*[, ]\s*(-?\d{1,3}(?:\.\d+)?)\s*$/);
+  if(m){const la=+m[1],lo=+m[2];if(Math.abs(la)<=90&&Math.abs(lo)<=180){res.innerHTML='';setOrigin([la,lo],`Koordinat ${la}, ${lo}`,'place');return;}}
+  res.innerHTML='<small>Mencari…</small>';
+  let list=[];
+  try{const r=await fetch('https://nominatim.openstreetmap.org/search?format=jsonv2&countrycodes=id&limit=6&accept-language=id&q='+encodeURIComponent(q));
+    if(!r.ok)throw 0;list=(await r.json()).map(x=>({la:+x.lat,lo:+x.lon,name:x.name||x.display_name.split(',')[0],detail:x.display_name}));}
+  catch(e){try{const r=await fetch('https://photon.komoot.io/api/?limit=6&lang=en&bbox=94,-11.5,141.5,6.5&q='+encodeURIComponent(q));
+    const j=await r.json();list=j.features.map(f=>({la:f.geometry.coordinates[1],lo:f.geometry.coordinates[0],name:f.properties.name||q,detail:[f.properties.city,f.properties.county,f.properties.state].filter(Boolean).join(', ')}));}catch(e2){}}
+  if(!list.length){res.innerHTML='<small>Tempat tidak ditemukan. Coba nama lain, tambahkan nama kabupaten/provinsi, atau masukkan koordinat.</small>';return;}
+  res.innerHTML=list.map((x,i)=>`<button data-i="${i}"><b>${esc(x.name)}</b><br><small>${esc(x.detail)}</small></button>`).join('');
+  res.onclick=e=>{const b=e.target.closest('button');if(!b)return;const x=list[+b.dataset.i];res.innerHTML='';setOrigin([x.la,x.lo],x.name+(x.detail&&x.detail!==x.name?' — '+x.detail.split(',').slice(1,3).join(',').trim():''),'place');};
+}
+$('placeGo').addEventListener('click',searchPlace);
+$('placeQ').addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();searchPlace();}});
 function setOpen(o){$('panel').classList.toggle('open',o);$('toggle').setAttribute('aria-expanded',o);}
 $('toggle').addEventListener('click',()=>setOpen(!$('panel').classList.contains('open')));
 // ===== Export Excel =====
-function getLoc(){return new Promise((ok,no)=>{if(me)return ok(me);if(!navigator.geolocation)return no();
-  navigator.geolocation.getCurrentPosition(pos=>{me=[pos.coords.latitude,pos.coords.longitude];
-    if(!meMk)meMk=L.marker(me,{icon:L.divIcon({html:'<div class="me"></div>',className:'',iconSize:[16,16]})}).addTo(map).bindTooltip('Lokasi Anda');
-    $('near').textContent='Urutan terdekat aktif (matikan)';$('near').classList.add('primary');apply(false);ok(me);},()=>no(),{enableHighAccuracy:true,timeout:15000});});}
+function getLoc(){return me?Promise.resolve(me):gpsOrigin();}
 $('xls').addEventListener('click',async()=>{
   if(typeof XLSX==='undefined'){alert('Komponen Excel belum termuat. Periksa koneksi internet lalu muat ulang halaman.');return;}
   if(!cur.length){alert('Tidak ada data untuk diekspor. Ubah filter terlebih dahulu.');return;}
   const btn=$('xls');btn.textContent='Mengambil lokasi…';btn.disabled=true;
-  let loc=null;try{loc=await getLoc();}catch(e){if(!confirm('Lokasi Anda tidak bisa diambil, jadi kolom jarak akan kosong. Tetap export?')){btn.textContent='Export ke Excel';btn.disabled=false;return;}}
+  let loc=null;try{loc=await getLoc();}catch(e){if(!confirm('Titik awal belum dipilih (lokasi GPS tidak bisa diambil), jadi kolom jarak akan kosong. Tetap export? Anda juga bisa memilih Kota / tempat sebagai titik awal.')){btn.textContent='Export ke Excel';btn.disabled=false;return;}}
   btn.textContent='Membuat file…';
   const rows=cur.map(r=>({...r,km:loc?dist(loc[0],loc[1],r.la,r.lo):null}));
   if(loc)rows.sort((a,b)=>a.km-b.km);
-  const head=['No','Jarak dari Lokasi Saya (km)','Komoditas','Jenis','Provinsi','Kabupaten/Kota','Kecamatan','Desa','Jumlah Benih (Batang)','Penyedia','No. Kontrak','Tanggal Kontrak','Nama Paket','Satker','Latitude','Longitude','Petunjuk Arah (Google Maps)'];
+  const head=['No','Jarak dari Titik Awal (km)','Komoditas','Jenis','Provinsi','Kabupaten/Kota','Kecamatan','Desa','Jumlah Benih (Batang)','Penyedia','No. Kontrak','Tanggal Kontrak','Nama Paket','Satker','Latitude','Longitude','Petunjuk Arah (Google Maps)'];
   const aoa=[head,...rows.map((r,i)=>[i+1,r.km==null?'':Math.round(r.km*10)/10,r.k,r.j,r.p,r.kb,r.kc,r.d,r.b,r.py,r.nk,r.tg,r.pk,r.s,r.la,r.lo,'Buka petunjuk arah'])];
   const ws=XLSX.utils.aoa_to_sheet(aoa);
   rows.forEach((r,i)=>{const ref=XLSX.utils.encode_cell({r:i+1,c:16});ws[ref].l={Target:dirURL(r),Tooltip:'Buka navigasi di Google Maps'};
@@ -230,10 +272,10 @@ $('xls').addEventListener('click',async()=>{
     ['Tanggal export',new Date().toLocaleString('id-ID')],
     ['Provinsi',$('prov').value||'Semua provinsi'],['Kabupaten/Kota',$('kab').value||'Semua kabupaten/kota'],
     ['Satker',$('satker').value||'Semua satker'],['Komoditas',kom],['Kata kunci',$('q').value||'-'],[],
-    ['Lokasi saya',loc?loc[0].toFixed(6)+', '+loc[1].toFixed(6):'Tidak tersedia'],
+    ['Titik awal',loc?meLabel:'Tidak tersedia'],['Koordinat titik awal',loc?loc[0].toFixed(6)+', '+loc[1].toFixed(6):'-'],
     ['Jumlah titik',rows.length],['Total benih (batang)',rows.reduce((a,r)=>a+r.b,0)],
     ['Nursery terdekat',loc?`${rows[0].k} - Desa ${rows[0].d}, ${rows[0].kb} (${(Math.round(rows[0].km*10)/10).toLocaleString('id-ID')} km)`:'-'],[],
-    ['Catatan','Jarak dihitung garis lurus dari lokasi Anda saat export, bukan jarak tempuh jalan. Jarak tempuh lihat lewat link Petunjuk Arah.']];
+    ['Catatan','Jarak dihitung garis lurus dari titik awal yang dipilih, bukan jarak tempuh jalan. Jarak tempuh lihat lewat link Petunjuk Arah.']];
   const wi=XLSX.utils.aoa_to_sheet(info);wi['!cols']=[{wch:22},{wch:80}];
   const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'Daftar Nursery');XLSX.utils.book_append_sheet(wb,wi,'Keterangan');
   const tag=($('kab').value||$('prov').value||'Semua').replace(/[^A-Za-z0-9]+/g,'_');
