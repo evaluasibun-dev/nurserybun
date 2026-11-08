@@ -21,7 +21,8 @@
 html,body{height:100%;margin:0}
 body{font-family:"Plus Jakarta Sans",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;background:var(--bg);color:var(--ink);font-size:15px;line-height:1.45}
 .app{display:grid;grid-template-columns:400px 1fr;height:100%}
-aside{background:var(--panel);border-right:1px solid var(--line);display:flex;flex-direction:column;min-height:0;padding-top:env(safe-area-inset-top,0px)}
+[hidden]{display:none!important}
+aside{background:var(--panel);border-right:1px solid var(--line);display:flex;flex-direction:column;min-height:0;overflow-y:auto;overscroll-behavior:contain;padding-top:env(safe-area-inset-top,0px)}
 .head{padding:18px 20px 14px;border-bottom:1px solid var(--line)}
 .head h1{font-size:21px;font-weight:800;letter-spacing:-.02em;margin:0;line-height:1.2}
 .head p{margin:4px 0 0;color:var(--muted);font-size:13px}
@@ -42,7 +43,9 @@ input:focus-visible,select:focus-visible,button:focus-visible,a:focus-visible{ou
 .tools{display:flex;gap:8px;flex-wrap:wrap}
 .btn{font:inherit;font-size:13px;font-weight:600;border:1px solid var(--line);background:var(--panel);color:var(--ink);border-radius:10px;padding:7px 11px;cursor:pointer}
 .btn.primary{background:var(--leaf);color:var(--leaf-ink);border-color:var(--leaf)}
-.list{overflow:auto;flex:1;min-height:0;padding:4px 0 calc(10px + env(safe-area-inset-bottom,0px))}
+.head,.filters{flex:none}
+.listhead{position:sticky;top:0;z-index:4;background:var(--panel);border-bottom:1px solid var(--line);padding:10px 20px;font-size:13px;font-weight:700;color:var(--muted)}
+.list{flex:none;padding:4px 0 calc(10px + env(safe-area-inset-bottom,0px))}
 .item{display:grid;grid-template-columns:12px 1fr auto;gap:10px;align-items:start;padding:11px 20px;border-bottom:1px solid var(--line);cursor:pointer;background:none;border-left:0;border-right:0;border-top:0;width:100%;text-align:left;font:inherit;color:inherit}
 .item:hover{background:var(--soft)}
 .item i{width:12px;height:12px;border-radius:50%;margin-top:4px}
@@ -89,6 +92,7 @@ input:focus-visible,select:focus-visible,button:focus-visible,a:focus-visible{ou
   .list{flex:none;overflow:visible;min-height:auto}
   
   .head p{display:none}
+  .listhead{top:64px}
   .stat b{font-size:18px}
   .toTop{display:block}
   .toggle{display:flex;justify-content:space-between;align-items:center;width:100%;font:inherit;font-weight:700;font-size:15px;background:none;border:0;color:var(--ink);padding:14px 20px;min-height:64px;cursor:pointer;border-bottom:1px solid var(--line);position:sticky;top:0;z-index:5;background:var(--panel)}
@@ -134,6 +138,7 @@ input:focus-visible,select:focus-visible,button:focus-visible,a:focus-visible{ou
         <button class="btn primary" id="xls">Export ke Excel</button>
       </div>
     </div>
+    <div class="listhead" id="listhead">Daftar nursery</div>
     <div class="list" id="list" role="list"></div>
   </aside>
   <div class="mapwrap"><div id="map" aria-label="Peta lokasi nursery"></div></div>
@@ -197,7 +202,7 @@ function apply(fit){
   if(me){cur.forEach(r=>r.km=dist(me[0],me[1],r.la,r.lo));cur.sort((a,b)=>a.km-b.km);} else cur.sort((a,b)=>a.p.localeCompare(b.p,'id')||a.kb.localeCompare(b.kb,'id')||a.k.localeCompare(b.k));
   cluster.clearLayers();cluster.addLayers(cur.map(r=>markers[r.id]));
   $('sTitik').textContent=fmt(cur.length);$('sBenih').textContent=fmt(cur.reduce((a,r)=>a+r.b,0));$('sKab').textContent=fmt(new Set(cur.map(r=>r.kb)).size);
-  $('tcount').textContent=fmt(cur.length)+' titik';
+  $('tcount').textContent=fmt(cur.length)+' titik';$('listhead').textContent=me?`Daftar nursery terdekat dari ${meLabel} (${fmt(cur.length)} titik)`:`Daftar nursery (${fmt(cur.length)} titik)`;
   shown=200;renderList();
   if(fit&&cur.length){const b=L.latLngBounds(cur.map(r=>[r.la,r.lo]));const m=innerWidth<=820;map.invalidateSize();map.fitBounds(b,{paddingTopLeft:[30,30],paddingBottomRight:[30,m?90:30],maxZoom:13});}
 }
@@ -223,7 +228,8 @@ function setOrigin(c,label,type){me=c;meType=type;meLabel=label;
   meMk=L.marker(c,{icon:type==='gps'?L.divIcon({html:'<div class="me"></div>',className:'',iconSize:[16,16]}):L.divIcon({html:'<div class="start"></div>',className:'',iconSize:[18,18],iconAnchor:[9,18]}),zIndexOffset:1000}).addTo(map).bindTooltip('Titik awal: '+label);
   $('oGps').setAttribute('aria-pressed',type==='gps');$('oPlace').setAttribute('aria-pressed',type==='place');
   const st=$('oStatus');st.hidden=false;st.innerHTML=`<span>Titik awal: <b>${esc(label)}</b><br><small style="color:var(--muted)">Daftar diurutkan dari yang terdekat</small></span><button id="oClear">Hapus</button>`;
-  $('oClear').onclick=clearOrigin;apply(false);map.setView(c,9);}
+  $('oClear').onclick=clearOrigin;apply(false);map.setView(c,9);
+  setTimeout(()=>{const pn=$('panel'),lh=$('listhead');pn.scrollTo({top:lh.offsetTop-(innerWidth<=820?64:0),behavior:'smooth'});},150);}
 function clearOrigin(){me=null;meType=null;meLabel='';if(meMk){map.removeLayer(meMk);meMk=null;}
   $('oStatus').hidden=true;$('oGps').setAttribute('aria-pressed','false');$('oPlace').setAttribute('aria-pressed','false');$('placeBox').hidden=true;apply(true);}
 function gpsOrigin(){return new Promise((ok,no)=>{if(!navigator.geolocation){alert('Browser ini tidak mendukung lokasi.');return no();}
