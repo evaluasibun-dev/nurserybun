@@ -118,10 +118,10 @@ const viewURL=r=>`https://www.google.com/maps/search/?api=1&query=${r.la},${r.lo
 DATA.forEach((r,i)=>{r.id=i;r.txt=[r.d,r.kc,r.kb,r.p,r.py,r.nk,r.pk,r.k,r.j].join(' ').toLowerCase();});
 
 const map=L.map('map',{zoomControl:true,preferCanvas:true}).setView([-2.3,118],5);
-const jalan=L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',{maxZoom:20,subdomains:'abcd',attribution:'&copy; OpenStreetMap contributors &copy; CARTO'}).addTo(map);
-const sat=L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',{maxZoom:19,attribution:'Esri World Imagery'});
-const topo=L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}',{maxZoom:19,attribution:'Esri World Street Map'});
-L.control.layers({'Peta jalan':jalan,'Citra satelit':sat,'Peta jalan (Esri)':topo},null,{position:'topright'}).addTo(map);
+const jalan=L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}',{maxZoom:19,attribution:'Tiles &copy; Esri'}).addTo(map);
+const sat=L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',{maxZoom:19,attribution:'Tiles &copy; Esri World Imagery'});
+const osm=L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'&copy; OpenStreetMap contributors'});
+L.control.layers({'Peta jalan':jalan,'Citra satelit':sat,'OpenStreetMap':osm},null,{position:'topright'}).addTo(map);
 
 const cluster=L.markerClusterGroup({showCoverageOnHover:false,maxClusterRadius:45,spiderfyOnMaxZoom:true,
   iconCreateFunction:c=>{const n=c.getChildCount();const s=n<10?34:n<50?40:n<200?48:56;
